@@ -13,7 +13,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #ffd1dc; /* Warm pink palette */
+            background-color: #ffd1dc;
             font-family: 'Press Start 2P', cursive;
             touch-action: none;
         }
@@ -36,6 +36,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            z-index: 10;
         }
 
         .screen {
@@ -92,7 +93,6 @@
             display: none;
         }
 
-        /* Mobile controls overlay */
         #touch-controls {
             position: absolute;
             bottom: 0;
@@ -152,7 +152,6 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Audio Context for beeps
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -187,15 +186,13 @@
             }
         }
 
-        // Game Constants & Variables
-        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let gameState = 'START';
         let score = 0;
         let lives = 3;
         let frameCount = 0;
         let spawnRate = 60;
         let speedMultiplier = 1;
 
-        // Player (Bube)
         const player = {
             x: width / 2,
             y: height - 100,
@@ -205,7 +202,6 @@
             vx: 0
         };
 
-        // Inputs
         const keys = { left: false, right: false };
 
         window.addEventListener('keydown', (e) => {
@@ -217,7 +213,6 @@
             if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
         });
 
-        // Touch Controls
         const touchLeft = document.getElementById('touchLeft');
         const touchRight = document.getElementById('touchRight');
         
@@ -226,13 +221,10 @@
         touchRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
         touchRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
 
-        // Items
-        const goodFoods = ['☕', '🍵', '🍫', '🍕', '🍟', '🌯', '🥤', '🍰', '🍮', '🧁', '🍦', '🥛', '🍞', '🍣']; // Approximations of favorites
+        const goodFoods = ['☕', '🍵', '🍫', '🍕', '🍟', '🌯', '🥤', '🍰', '🍮', '🧁', '🍦', '🥛', '🍞', '🍣'];
         const badFoods = ['🥦', '🥬'];
         let items = [];
 
-        // Bube Pixel Art Sprite (10x10)
-        // 0: empty, 1: auburn hair, 2: light choc skin, 3: outfit (pink), 4: eyes
         const pSprite = [
             [0,1,1,1,1,1,1,1,0,0],
             [1,1,1,2,2,2,1,1,1,0],
@@ -247,10 +239,10 @@
         ];
 
         const colors = {
-            1: '#8B3A3A', // Auburn micro locs
-            2: '#D2A679', // Light chocolate skin
-            3: '#ff9a9e', // Cute pink outfit
-            4: '#333333'  // Eyes
+            1: '#8B3A3A',
+            2: '#D2A679',
+            3: '#ff9a9e',
+            4: '#333333'
         };
 
         function drawPlayer() {
@@ -267,7 +259,7 @@
         }
 
         function spawnItem() {
-            const isGood = Math.random() > 0.25; // 75% chance for good food
+            const isGood = Math.random() > 0.25;
             const emojiArr = isGood ? goodFoods : badFoods;
             const emoji = emojiArr[Math.floor(Math.random() * emojiArr.length)];
             const size = 40;
@@ -286,30 +278,24 @@
         function update() {
             if (gameState !== 'PLAYING') return;
 
-            // Movement
             if (keys.left) player.x -= player.speed;
             if (keys.right) player.x += player.speed;
 
-            // Boundaries
             if (player.x < player.width/2) player.x = player.width/2;
             if (player.x > width - player.width/2) player.x = width - player.width/2;
 
-            // Spawning
             frameCount++;
             if (frameCount >= spawnRate) {
                 spawnItem();
                 frameCount = 0;
-                // Increase difficulty
                 if (spawnRate > 20) spawnRate -= 0.5;
                 speedMultiplier += 0.01;
             }
 
-            // Update Items & Collision
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += item.speed;
 
-                // Simple Box Collision
                 const dx = Math.abs(item.x - player.x);
                 const dy = Math.abs(item.y - player.y);
                 
@@ -336,7 +322,6 @@
         function draw() {
             ctx.clearRect(0, 0, width, height);
             
-            // Draw floor
             ctx.fillStyle = '#ffb6c1';
             ctx.fillRect(0, height - 50, width, 50);
 
@@ -401,7 +386,6 @@
             updateHUD();
         }
 
-        // Start render loop
         requestAnimationFrame(loop);
     </script>
 </body>
