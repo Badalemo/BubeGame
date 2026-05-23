@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -164,7 +165,6 @@
     
     const input = { up: false, down: false, left: false, right: false, action: false };
 
-    // Solid bridges added to ensure clear passage
     const mapLayout = [
         "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
         "T......................................T",
@@ -350,4 +350,359 @@
         const el = document.getElementById(id);
         if(!el) return;
         el.addEventListener('touchstart', e => { e.preventDefault(); input[key] = true; }, {passive: false});
-        el.addEventListener('touchend', e => { e.preventDefault(); input[key] =
+        el.addEventListener('touchend', e => { e.preventDefault(); input[key] = false; }, {passive: false});
+        el.addEventListener('mousedown', e => { e.preventDefault(); input[key] = true; });
+        el.addEventListener('mouseup', e => { e.preventDefault(); input[key] = false; });
+        el.addEventListener('mouseleave', e => { e.preventDefault(); input[key] = false; });
+    }
+    
+    bindBtn('btnUp', 'up'); 
+    bindBtn('btnDown', 'down'); 
+    bindBtn('btnLeft', 'left'); 
+    bindBtn('btnRight', 'right');
+    
+    const actBtn = document.getElementById('actionBtn');
+    if(actBtn) {
+        actBtn.addEventListener('touchstart', e => { e.preventDefault(); handleAction(); }, {passive: false});
+        actBtn.addEventListener('mousedown', e => { e.preventDefault(); handleAction(); });
+    }
+    
+    const dBox = document.getElementById('dialogueBox');
+    if(dBox) {
+        dBox.addEventListener('click', () => { if(gameState === "DIALOGUE") handleAction(); });
+        dBox.addEventListener('touchstart', e => { e.preventDefault(); if(gameState === "DIALOGUE") handleAction(); }, {passive: false});
+    }
+
+    function spawnParticles(x, y, color) {
+        for(let i=0; i<15; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6 - 2,
+                life: 1.0, color: color, size: Math.random()*4 + 2
+            });
+        }
+    }
+
+    function updateHUD() {
+        let qHtml = "";
+        for (const [key, q] of Object.entries(quests)) {
+            if (q.complete) {
+                qHtml += `<div class="quest-item quest-done">${q.title}</div>`;
+            } else if (q.active) {
+                let hasItem = inventoryItems.includes(key);
+                qHtml += `<div class="quest-item">${q.title}<br><span style="color:#aaa; font-size: 8px;">${hasItem ? 'Return to NPC!' : q.objective}</span></div>`;
+            }
+        }
+        if (qHtml === "") qHtml = "<div class='quest-item'>Talk to people to find your treats!</div>";
+        document.getElementById('questList').innerHTML = qHtml;
+
+        let tHtml = collectedTreats.length > 0 ? collectedTreats.join('<br>') : "Empty!";
+        document.getElementById('treatList').innerHTML = tHtml;
+    }
+
+    function handleAction() {
+        if (gameState === "PLAY") {
+            for (let npc of npcs) {
+                let dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+                if (dist < TILE_SIZE * 1.5) {
+                    startDialogue(npc);
+                    return;
+                }
+            }
+            for (let item of items) {
+                if (!item.collected && quests[item.quest].active) {
+                    let dist = Math.hypot(player.x - item.x, player.y - item.y);
+                    if (dist < TILE_SIZE) {
+                        item.collected = true;
+                        inventoryItems.push(item.quest);
+                        spawnParticles(item.x, item.y, '#ffeb3b');
+                        updateHUD();
+                        
+                        document.getElementById('npcName').innerText = "SYSTEM";
+                        document.getElementById('dialogueText').innerText = `You found the ${item.name}!`;
+                        dialogueLines = [`You found the ${item.name}! Return to the quest giver.`];
+                        dialogueIndex = 0;
+                        gameState = "DIALOGUE";
+                        document.getElementById('dialogueBox').style.display = 'block';
+                        input.up = input.down = input.left = input.right = false;
+                        return;
+                    }
+                }
+            }
+        } else if (gameState === "DIALOGUE") {
+            dialogueIndex++;
+            if (dialogueIndex >= dialogueLines.length) {
+                document.getElementById('dialogueBox').style.display = 'none';
+                gameState = "PLAY";
+                currentNPC = null;
+                updateHUD();
+            } else {
+                document.getElementById('dialogueText').innerText = dialogueLines[dialogueIndex];
+            }
+        }
+    }
+
+    function startDialogue(npc) {
+        gameState = "DIALOGUE"; currentNPC = npc; dialogueIndex = 0;
+        input.up = input.down = input.left = input.right = false; 
+
+        let q = quests[npc.questId];
+        if (q.complete) dialogueLines = npc.dialogue.done;
+        else if (inventoryItems.includes(npc.questId)) {
+            dialogueLines = npc.dialogue.complete;
+            q.complete = true;
+            collectedTreats.push(...npc.gives);
+            spawnParticles(player.x, player.y, '#ff69b4');
+        } 
+        else if (q.active) dialogueLines = npc.dialogue.pending;
+        else { dialogueLines = npc.dialogue.start; q.active = true; }
+
+        updateHUD();
+        document.getElementById('npcName').innerText = npc.name;
+        document.getElementById('dialogueText').innerText = dialogueLines[0];
+        document.getElementById('dialogueBox').style.display = 'block';
+    }
+
+    function getTile(x, y) {
+        let col = Math.floor(x / TILE_SIZE);
+        let row = Math.floor(y / TILE_SIZE);
+        if(row >= 0 && row < MAP_H && col >= 0 && col < MAP_W) {
+            if(mapLayout[row] && mapLayout[row][col]) {
+                return mapLayout[row][col];
+            }
+        }
+        return 'T'; 
+    }
+
+    function checkCollision(x, y) {
+        let pts = [
+            {cx: x - player.w/2 + 2, cy: y},
+            {cx: x + player.w/2 - 2, cy: y},
+            {cx: x - player.w/2 + 2, cy: y - player.h/2},
+            {cx: x + player.w/2 - 2, cy: y - player.h/2}
+        ];
+        for(let p of pts) {
+            let t = getTile(p.cx, p.cy);
+            if(t === 'T') return true; 
+        }
+        return false;
+    }
+
+    function checkHazards() {
+        let t = getTile(player.x, player.y);
+        if(t === 'W') {
+            die();
+        }
+    }
+
+    function die() {
+        gameState = "DEAD";
+        document.getElementById('deathScreen').style.display = 'flex';
+        input.up = input.down = input.left = input.right = false;
+        setTimeout(() => {
+            player.x = player.spawnX;
+            player.y = player.spawnY;
+            camera.x = player.x - canvas.width/2;
+            camera.y = player.y - canvas.height/2;
+            gameState = "PLAY";
+            document.getElementById('deathScreen').style.display = 'none';
+        }, 1000);
+    }
+
+    function drawBube(ctx, px, py) {
+        ctx.save();
+        ctx.translate(px, py);
+        
+        let bob = player.moving ? Math.sin(player.stateTime * 0.4) * 3 : 0;
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath(); ctx.ellipse(0, 5, 12, 6, 0, 0, Math.PI*2); ctx.fill();
+
+        ctx.translate(0, bob);
+
+        if(player.dir === -1) ctx.scale(-1, 1);
+
+        ctx.fillStyle = '#333';
+        let legSwing = player.moving ? Math.sin(player.stateTime * 0.4) * 6 : 0;
+        ctx.fillRect(-6 + legSwing/2, 0, 5, 10); 
+        ctx.fillRect(2 - legSwing/2, 0, 5, 10); 
+        
+        ctx.fillStyle = '#ff69b4';
+        ctx.fillRect(-8, -15, 16, 16);
+
+        ctx.fillStyle = '#6b4423';
+        ctx.fillRect(-3, -18, 6, 4);
+
+        ctx.fillRect(-10, -30, 20, 16);
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(1, -26, 4, 4);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(3, -25, 2, 2);
+
+        ctx.fillStyle = '#1a1110';
+        ctx.fillRect(-12, -34, 24, 12);
+        
+        for(let i=-10; i<=8; i+=3) {
+            let locLen = 10 + Math.random()*5 + (player.moving ? Math.sin(player.stateTime*0.5 + i)*2 : 0);
+            ctx.fillRect(i, -25, 2, locLen);
+        }
+
+        ctx.restore();
+    }
+
+    function update() {
+        if (gameState !== "PLAY") return;
+        frameCount++;
+        player.stateTime++;
+
+        let nx = player.x, ny = player.y;
+        player.moving = false;
+
+        if (input.up) { ny -= player.speed; player.moving = true; }
+        if (input.down) { ny += player.speed; player.moving = true; }
+        if (input.left) { nx -= player.speed; player.dir = -1; player.moving = true; }
+        if (input.right) { nx += player.speed; player.dir = 1; player.moving = true; }
+
+        if (!checkCollision(nx, player.y)) player.x = nx;
+        if (!checkCollision(player.x, ny)) player.y = ny;
+
+        checkHazards();
+
+        let targetCamX = player.x - canvas.width/2;
+        let targetCamY = player.y - canvas.height/2;
+        targetCamX = Math.max(0, Math.min(targetCamX, MAP_W * TILE_SIZE - canvas.width));
+        targetCamY = Math.max(0, Math.min(targetCamY, MAP_H * TILE_SIZE - canvas.height));
+        
+        camera.x += (targetCamX - camera.x) * 0.1;
+        camera.y += (targetCamY - camera.y) * 0.1;
+
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.2; 
+            p.life -= 0.02;
+            if(p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (gameState === "MENU") return;
+
+        ctx.save();
+        ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+        let startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
+        let endCol = Math.min(MAP_W, Math.ceil((camera.x + canvas.width) / TILE_SIZE));
+        let startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
+        let endRow = Math.min(MAP_H, Math.ceil((camera.y + canvas.height) / TILE_SIZE));
+
+        let waterFrame = Math.floor(frameCount / 15) % 4;
+
+        for (let r = startRow; r < endRow; r++) {
+            for (let c = startCol; c < endCol; c++) {
+                if(!mapLayout[r] || !mapLayout[r][c]) continue;
+                
+                let t = mapLayout[r][c];
+                let tx = c * TILE_SIZE;
+                let ty = r * TILE_SIZE;
+                
+                if(t !== 'W') ctx.drawImage(tileCache.grass, tx, ty);
+
+                if (t === 'D') ctx.drawImage(tileCache.dirt, tx, ty);
+                else if (t === 'W') ctx.drawImage(tileCache.water[waterFrame], tx, ty);
+                else if (t === 'B') ctx.drawImage(tileCache.bridge, tx, ty);
+            }
+        }
+
+        let renderQueue = [
+            { type: 'player', y: player.y, obj: player },
+            ...npcs.map(n => ({ type: 'npc', y: n.y, obj: n }))
+        ];
+        
+        for(let item of items) {
+            if(!item.collected && quests[item.quest].active) {
+                renderQueue.push({ type: 'item', y: item.y, obj: item });
+            }
+        }
+
+        for (let r = startRow; r < endRow; r++) {
+            for (let c = startCol; c < endCol; c++) {
+                if (mapLayout[r] && mapLayout[r][c] === 'T') {
+                    renderQueue.push({ type: 'tree', y: r * TILE_SIZE + TILE_SIZE, x: c*TILE_SIZE, r:r, c:c });
+                }
+            }
+        }
+
+        renderQueue.sort((a, b) => a.y - b.y);
+
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        
+        for (let item of renderQueue) {
+            if (item.type === 'tree') {
+                ctx.drawImage(tileCache.tree, item.x, item.r * TILE_SIZE);
+            }
+            else if (item.type === 'player') {
+                drawBube(ctx, player.x, player.y);
+            }
+            else if (item.type === 'npc') {
+                let n = item.obj;
+                ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(n.x, n.y+15, 12, 6, 0, 0, Math.PI*2); ctx.fill();
+                ctx.font = '32px Arial'; ctx.fillText(n.emoji, n.x, n.y);
+                ctx.font = '10px "Press Start 2P"'; ctx.fillStyle = 'white'; ctx.fillText(n.name, n.x, n.y - 25);
+                
+                let q = quests[n.questId];
+                let ind = "";
+                if (!q.active) ind = "!";
+                else if (!q.complete && inventoryItems.includes(n.questId)) ind = "?";
+                
+                if (ind) {
+                    let floatY = Math.sin(frameCount / 10) * 3;
+                    ctx.fillStyle = ind === "?" ? '#55ff55' : 'yellow';
+                    ctx.fillText(ind, n.x, n.y - 40 + floatY);
+                }
+
+                if (gameState === "PLAY" && Math.hypot(player.x - n.x, player.y - n.y) < TILE_SIZE * 1.5) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                    ctx.beginPath(); ctx.arc(n.x, n.y, TILE_SIZE*1.5, 0, Math.PI*2); ctx.fill();
+                }
+            }
+            else if (item.type === 'item') {
+                let i = item.obj;
+                let floatY = Math.sin(frameCount / 15) * 5;
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(i.x, i.y+10, 10, 5, 0, 0, Math.PI*2); ctx.fill();
+                ctx.font = '24px Arial'; ctx.fillText(i.emoji, i.x, i.y + floatY);
+                ctx.font = '8px "Press Start 2P"'; ctx.fillStyle = '#ffeb3b'; ctx.fillText(i.name, i.x, i.y - 20 + floatY);
+            }
+        }
+
+        for(let p of particles) {
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1.0;
+        }
+
+        ctx.restore();
+
+        let gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.height*0.3, canvas.width/2, canvas.height/2, canvas.width);
+        gradient.addColorStop(0, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.7)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0,0, canvas.width, canvas.height);
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    draw();
+</script>
+</body>
+</html>
+
+```
