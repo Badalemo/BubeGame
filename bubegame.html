@@ -2,43 +2,65 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bube's Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bube's Adventure</title>
     <style>
-        body { margin: 0; background: #2b2b36; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: sans-serif; color: white; }
-        #gameCanvas { background: #3a3a48; border: 4px solid #ff69b4; touch-action: none; }
+        body { margin: 0; background: #222; color: #fff; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; }
+        canvas { display: block; image-rendering: pixelated; width: 100vw; height: 100vh; }
+        #ui { position: absolute; bottom: 10%; left: 5%; right: 5%; background: rgba(0,0,0,0.8); padding: 20px; border: 2px solid #fff; display: none; }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="game"></canvas>
+    <div id="ui"><p id="text"></p></div>
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        canvas.width = 800; canvas.height = 400;
+        const ui = document.getElementById('ui');
+        const text = document.getElementById('text');
+        
+        let player = { x: 100, y: 300, w: 50, h: 50 };
+        let npc = { x: 600, y: 300, w: 50, h: 50, name: "Friend" };
+        let keys = {};
+        let talking = false;
 
-        let player = { x: 400, y: 350 };
-        let treats = ['🧋', '🍕', '🍫', '🍟', '🍰'];
-        let items = [];
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function update() {
+            if (!talking) {
+                if (keys['ArrowLeft']) player.x -= 5;
+                if (keys['ArrowRight']) player.x += 5;
+                if (Math.abs(player.x - npc.x) < 60) {
+                    ui.style.display = 'block';
+                    text.innerText = "NPC: Hey Bube! Want some pizza? (Press SPACE)";
+                    if (keys['Space']) talking = true;
+                } else {
+                    ui.style.display = 'none';
+                }
+            } else if (keys['Enter']) {
+                talking = false;
+                ui.style.display = 'none';
+            }
+        }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Draw Player
-            ctx.font = '40px Arial';
-            ctx.fillText('🧺', player.x, player.y);
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'pink';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = 'cyan';
+            ctx.fillRect(npc.x, npc.y, npc.w, npc.h);
+            ctx.fillStyle = 'white';
+            ctx.fillText("Bube", player.x, player.y - 10);
+            ctx.fillText(npc.name, npc.x, npc.y - 10);
             
-            // Move/Draw Items
-            items.forEach((item, index) => {
-                item.y += 3;
-                ctx.fillText(item.emoji, item.x, item.y);
-                if (item.y > 400) items.splice(index, 1);
-            });
-            
+            update();
             requestAnimationFrame(draw);
         }
 
-        // Simple input
-        window.addEventListener('mousemove', e => player.x = e.clientX - 20);
-        setInterval(() => items.push({ x: Math.random() * 750, y: 0, emoji: treats[Math.floor(Math.random()*treats.length)] }), 1000);
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
         draw();
     </script>
 </body>
