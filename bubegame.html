@@ -15,6 +15,10 @@
             user-select: none;
         }
 
+        #errorLog {
+            position: absolute; top: 0; left: 0; padding: 20px; color: red; z-index: 100000; font-size: 12px; display: none; background: black; width: 100%; box-sizing: border-box;
+        }
+
         #startScreen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
@@ -28,6 +32,7 @@
             background: #ff69b4; color: white; border: 4px solid white;
             padding: 15px 30px; font-family: 'Press Start 2P', monospace;
             cursor: pointer; box-shadow: 4px 4px 0 #000; font-size: clamp(10px, 2vw, 16px); transition: 0.1s;
+            pointer-events: auto;
         }
         button.ui-btn:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0 #000; }
 
@@ -41,4 +46,462 @@
             background-image: 
                 radial-gradient(#3e7338 15%, transparent 16%),
                 radial-gradient(#3e7338 15%, transparent 16%);
-            background-size: 60px 6
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            image-rendering: pixelated;
+            max-width: 100%; max-height: 100%;
+        }
+
+        #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        #dialogueBox {
+            position: absolute; bottom: 5%; left: 10%; width: 80%; height: 120px;
+            background: rgba(0, 0, 0, 0.85); border: 4px solid #ffb6c1; padding: 15px;
+            box-sizing: border-box; display: none; pointer-events: auto;
+            box-shadow: 8px 8px 0 rgba(0,0,0,0.6); z-index: 50; cursor: pointer;
+        }
+        #npcName { color: #ffeb3b; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; }
+        #dialogueText { font-size: 10px; line-height: 1.6; color: #fff; }
+        #dialogueIndicator { position: absolute; bottom: 10px; right: 15px; font-size: 10px; animation: blink 1s infinite; }
+        
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+
+        #questLog {
+            position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7);
+            border: 2px solid #fff; padding: 10px; font-size: 8px; line-height: 1.5;
+            max-width: 200px; color: #ffb6c1; text-shadow: 1px 1px 0 #000; pointer-events: auto;
+        }
+        .quest-item { color: white; margin-top: 5px; }
+        .quest-done { color: #888; text-decoration: line-through; }
+
+        #inventory {
+            position: absolute; top: 10px; left: 10px; font-size: 10px;
+            background: rgba(0,0,0,0.7); border: 2px solid #fff; padding: 10px;
+            max-width: 250px; line-height: 1.5; pointer-events: auto;
+        }
+
+        #mobileControls {
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 150px;
+            display: none; pointer-events: none; z-index: 40;
+        }
+        .dpad { position: absolute; left: 20px; bottom: 0px; width: 120px; height: 120px; pointer-events: auto;}
+        .dbtn { position: absolute; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 10px; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        .dbtn:active { background: rgba(255,105,180,0.6); }
+        .up { top: 0; left: 40px; width: 40px; height: 40px; }
+        .down { bottom: 0; left: 40px; width: 40px; height: 40px; }
+        .left { top: 40px; left: 0; width: 40px; height: 40px; }
+        .right { top: 40px; right: 0; width: 40px; height: 40px; }
+        
+        #actionBtn {
+            position: absolute; right: 20px; bottom: 20px; width: 70px; height: 70px;
+            background: rgba(255,105,180,0.5); border: 4px solid #fff; border-radius: 50%;
+            color: white; font-family: 'Press Start 2P', monospace; font-size: 8px;
+            pointer-events: auto; display: flex; justify-content: center; align-items: center; text-align: center; cursor: pointer;
+        }
+        #actionBtn:active { background: rgba(255,105,180,0.9); transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div id="errorLog"></div>
+
+<div id="startScreen">
+    <h1>Bube's<br>Epic Feast</h1>
+    <p>The townspeople want to give you your favorite treats, but they need help.<br><br><b>NOTE: If you see a blank screen again, please hard-refresh (Ctrl+F5) as GitHub Pages might be caching an old broken file!</b><br><br>PC: Arrows/WASD to move, SPACE to interact.<br>Mobile: Use touch controls.</p>
+    <button id="startBtn" class="ui-btn">START ADVENTURE</button>
+</div>
+
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="uiLayer">
+        <div id="inventory">Treats: None yet!</div>
+        
+        <div id="questLog">
+            MISSIONS:
+            <div id="questList"></div>
+        </div>
+
+        <div id="dialogueBox">
+            <div id="npcName">Name</div>
+            <div id="dialogueText">Hello!</div>
+            <div id="dialogueIndicator">▼</div>
+        </div>
+
+        <div id="mobileControls">
+            <div class="dpad">
+                <div class="dbtn up" id="btnUp">▲</div>
+                <div class="dbtn down" id="btnDown">▼</div>
+                <div class="dbtn left" id="btnLeft">◀</div>
+                <div class="dbtn right" id="btnRight">▶</div>
+            </div>
+            <div id="actionBtn">ACTION</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.onerror = function(msg, url, line) {
+        var errBox = document.getElementById('errorLog');
+        if(errBox) {
+            errBox.style.display = 'block';
+            errBox.innerHTML += "Error: " + msg + " at line " + line + "<br>";
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const startBtn = document.getElementById('startBtn');
+        const dialogueBox = document.getElementById('dialogueBox');
+        const npcNameEl = document.getElementById('npcName');
+        const dialogueText = document.getElementById('dialogueText');
+        const mobileControls = document.getElementById('mobileControls');
+        const inventoryText = document.getElementById('inventory');
+        const questListEl = document.getElementById('questList');
+        const actionBtn = document.getElementById('actionBtn');
+
+        canvas.width = 800;
+        canvas.height = 600;
+
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            mobileControls.style.display = 'block';
+        }
+
+        let gameState = "MENU"; 
+        let collectedTreats = [];
+        let inventoryItems = [];
+        let frameCount = 0;
+        
+        const input = { up: false, down: false, left: false, right: false, action: false };
+        const player = { x: 400, y: 300, size: 48, speed: 5, moving: false };
+
+        const bubeSpriteGrid = [
+            "  HHHHHHHH  ",
+            " HHHHHHHHHH ",
+            " HH SSSS HH ",
+            " HH SESS HH ",
+            " H  SSSS  H ",
+            " H  PPPP  H ",
+            " H PPPPPP H ",
+            " H PPPPPP H ",
+            "   LLLLLL   ",
+            "   LL  LL   ",
+            "   LL  LL   ",
+            "   SS  SS   "
+        ];
+
+        const colors = {
+            'H': '#1a1110', 
+            'S': '#6b4423', 
+            'E': '#ffffff', 
+            'P': '#ff69b4', 
+            'L': '#333333'  
+        };
+
+        const quests = {
+            drinks: { active: false, complete: false, name: "Find Coffee Beans" },
+            savory: { active: false, complete: false, name: "Find Secret Recipe" },
+            auntie: { active: false, complete: false, name: "Find Special Spice" },
+            sweets: { active: false, complete: false, name: "Find Sugar Bag" }
+        };
+
+        const mapItems = [
+            { id: 'beans', x: 100, y: 500, size: 30, emoji: '🫘', name: 'Coffee Beans', collected: false, quest: 'drinks' },
+            { id: 'recipe', x: 700, y: 100, size: 30, emoji: '📜', name: 'Secret Recipe', collected: false, quest: 'savory' },
+            { id: 'spice', x: 100, y: 100, size: 30, emoji: '🌿', name: 'Special Spice', collected: false, quest: 'auntie' },
+            { id: 'sugar', x: 700, y: 500, size: 30, emoji: '🧊', name: 'Sugar Bag', collected: false, quest: 'sweets' }
+        ];
+
+        const npcs = [
+            {
+                id: 'barista', x: 400, y: 100, size: 40, emoji: '🧍‍♂️', name: 'Barista', questId: 'drinks',
+                dialogue: {
+                    start: ["Hey Bube!", "I want to make your Caramel Ribbon Latte, Iced Chai, Coke, and Teem Tonic...", "But I lost my Coffee Beans down south!", "Can you find them?"],
+                    pending: ["Did you find the Coffee Beans yet? They should be in the bottom left."],
+                    complete: ["Amazing!", "Here is your Caramel Ribbon Latte, Iced Chai, Coke, Teem Tonic, and a Milkshake!"],
+                    done: ["Enjoy your drinks, Bube!"]
+                },
+                gives: ['🧋', '🥤', '🥤(Coke)', '🥤(Teem)', '🥤(Shake)']
+            },
+            {
+                id: 'chef', x: 200, y: 300, size: 40, emoji: '👩‍🍳', name: 'Chef', questId: 'savory',
+                dialogue: {
+                    start: ["Welcome to my kitchen!", "I can make Pizza, Loaded Fries, and Smoked Salmon...", "But a goblin stole my Secret Recipe and hid it up north-east!", "Please retrieve it!"],
+                    pending: ["No recipe, no Pizza! Hurry to the top right!"],
+                    complete: ["My recipe! You saved the day.", "Here is your Pizza, Loaded Fries, and Smoked Salmon!"],
+                    done: ["I hope the Pizza is perfect!"]
+                },
+                gives: ['🍕', '🍟', '🍣']
+            },
+            {
+                id: 'auntie', x: 600, y: 300, size: 40, emoji: '👵🏽', name: 'Auntie', questId: 'auntie',
+                dialogue: {
+                    start: ["Bube, my dear!", "I'm making Okpa and wrapping your Dubai Chocolate...", "But I need my Special Spice from the top left corner.", "Fetch it for me, nne?"],
+                    pending: ["The Okpa is waiting for that spice!"],
+                    complete: ["Thank you, my dear.", "Eat well! Here is your Okpa and Dubai Chocolate."],
+                    done: ["Come visit Auntie again soon!"]
+                },
+                gives: ['🫔', '🍫(Dubai)']
+            },
+            {
+                id: 'baker', x: 400, y: 500, size: 40, emoji: '👨‍🍳', name: 'Baker', questId: 'sweets',
+                dialogue: {
+                    start: ["Sugar rush time!", "I need to bake Cheesecake, Tiramisu, Brownies, Cupcakes...", "Ice-cream, Rice Krispy Treats and Banana Bread!", "But I'm out of Sugar! It's in the bottom right corner.", "Help?"],
+                    pending: ["Need that sugar for the Tiramisu!"],
+                    complete: ["Sweet success!", "Here are all your desserts: Cheesecake, Tiramisu, Brownies, Rice Krispy, Cupcake, Ice-cream, and Banana Bread!"],
+                    done: ["Don't eat it all at once!"]
+                },
+                gives: ['🍰', '🍮', '🍫(Brownie)', '🍘', '🧁', '🍦', '🍞']
+            }
+        ];
+
+        let currentNPC = null;
+        let dialogueLines = [];
+        let dialogueIndex = 0;
+
+        function initGame() {
+            if (gameState !== "MENU") return;
+            startScreen.style.display = 'none';
+            gameState = "PLAY";
+            updateQuestUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        startBtn.addEventListener('click', initGame);
+        startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); initGame(); }, {passive: false});
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') input.up = true;
+            if (e.key === 'ArrowDown' || e.key === 's') input.down = true;
+            if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
+            if (e.key === ' ' || e.key === 'Enter') handleAction();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') input.up = false;
+            if (e.key === 'ArrowDown' || e.key === 's') input.down = false;
+            if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
+        });
+
+        function bindTouch(id, key) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); input[key] = true; }, {passive: false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = false; }, {passive: false});
+        }
+        bindTouch('btnUp', 'up');
+        bindTouch('btnDown', 'down');
+        bindTouch('btnLeft', 'left');
+        bindTouch('btnRight', 'right');
+        
+        if(actionBtn) {
+            actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleAction(); }, {passive: false});
+            actionBtn.addEventListener('click', handleAction);
+        }
+        
+        dialogueBox.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameState === "DIALOGUE") handleAction(); }, {passive: false});
+        dialogueBox.addEventListener('click', () => { if (gameState === "DIALOGUE") handleAction(); });
+
+        function updateQuestUI() {
+            let html = "";
+            for (const [key, q] of Object.entries(quests)) {
+                if (q.complete) {
+                    html += `<div class="quest-item quest-done">- ${q.name}</div>`;
+                } else if (q.active) {
+                    let hasItem = inventoryItems.includes(key);
+                    html += `<div class="quest-item">- ${q.name} ${hasItem ? "(Return to NPC!)" : ""}</div>`;
+                }
+            }
+            if (html === "") html = "<div class='quest-item'>Talk to people!</div>";
+            questListEl.innerHTML = html;
+
+            let treatsDisplay = collectedTreats.length > 0 ? collectedTreats.join(' ') : "None yet!";
+            inventoryText.innerText = `Treats: \n${treatsDisplay}`;
+        }
+
+        function handleAction() {
+            if (gameState === "PLAY") {
+                for (let npc of npcs) {
+                    let dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+                    if (dist < 80) {
+                        startDialogue(npc);
+                        return;
+                    }
+                }
+                for (let item of mapItems) {
+                    if (!item.collected && quests[item.quest].active) {
+                        let dist = Math.hypot(player.x - item.x, player.y - item.y);
+                        if (dist < 60) {
+                            item.collected = true;
+                            inventoryItems.push(item.quest);
+                            updateQuestUI();
+                            
+                            npcNameEl.innerText = "System";
+                            dialogueText.innerText = `You picked up ${item.name}!`;
+                            dialogueLines = [`You picked up ${item.name}! Return it to the quest giver.`];
+                            dialogueIndex = 0;
+                            gameState = "DIALOGUE";
+                            dialogueBox.style.display = 'block';
+                            return;
+                        }
+                    }
+                }
+            } else if (gameState === "DIALOGUE") {
+                advanceDialogue();
+            }
+        }
+
+        function startDialogue(npc) {
+            gameState = "DIALOGUE";
+            currentNPC = npc;
+            dialogueIndex = 0;
+            input.up = input.down = input.left = input.right = false; 
+
+            let q = quests[npc.questId];
+            if (q.complete) {
+                dialogueLines = npc.dialogue.done;
+            } else if (inventoryItems.includes(npc.questId)) {
+                dialogueLines = npc.dialogue.complete;
+                q.complete = true;
+                collectedTreats.push(...npc.gives);
+            } else if (q.active) {
+                dialogueLines = npc.dialogue.pending;
+            } else {
+                dialogueLines = npc.dialogue.start;
+                q.active = true;
+            }
+            updateQuestUI();
+            dialogueBox.style.display = 'block';
+            updateDialogueUI();
+        }
+
+        function advanceDialogue() {
+            dialogueIndex++;
+            if (dialogueIndex >= dialogueLines.length) {
+                dialogueBox.style.display = 'none';
+                gameState = "PLAY";
+                currentNPC = null;
+                updateQuestUI();
+            } else {
+                updateDialogueUI();
+            }
+        }
+
+        function updateDialogueUI() {
+            npcNameEl.innerText = currentNPC ? currentNPC.name : "System";
+            dialogueText.innerText = dialogueLines[dialogueIndex];
+        }
+
+        function drawBube(ctx, x, y, scale, isMoving) {
+            let bobY = isMoving ? Math.sin(frameCount / 5) * 4 : 0;
+            let startX = x - (6 * scale);
+            let startY = y - (6 * scale) + bobY;
+
+            for (let row = 0; row < bubeSpriteGrid.length; row++) {
+                for (let col = 0; col < bubeSpriteGrid[row].length; col++) {
+                    let char = bubeSpriteGrid[row][col];
+                    if (char !== ' ') {
+                        ctx.fillStyle = colors[char];
+                        ctx.fillRect(startX + (col * scale), startY + (row * scale), scale, scale);
+                    }
+                }
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (gameState !== "MENU") {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function update() {
+            if (gameState !== "PLAY") return;
+            frameCount++;
+            player.moving = false;
+            if (input.up) { player.y -= player.speed; player.moving = true; }
+            if (input.down) { player.y += player.speed; player.moving = true; }
+            if (input.left) { player.x -= player.speed; player.moving = true; }
+            if (input.right) { player.x += player.speed; player.moving = true; }
+
+            player.x = Math.max(player.size/2, Math.min(canvas.width - player.size/2, player.x));
+            player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2, player.y));
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let renderQueue = [
+                { type: 'player', obj: player },
+                ...npcs.map(npc => ({ type: 'npc', obj: npc }))
+            ];
+            for (let item of mapItems) {
+                if (!item.collected && quests[item.quest].active) {
+                    renderQueue.push({ type: 'item', obj: item });
+                }
+            }
+            renderQueue.sort((a, b) => a.obj.y - b.obj.y);
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let item of renderQueue) {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                let shadowWidth = item.type === 'player' ? 30 : item.obj.size/2;
+                ctx.ellipse(item.obj.x, item.obj.y + (item.type === 'player' ? 20 : item.obj.size/2.5), shadowWidth, shadowWidth/2, 0, 0, Math.PI*2);
+                ctx.fill();
+
+                if (item.type === 'player') {
+                    drawBube(ctx, item.obj.x, item.obj.y, 4, item.obj.moving);
+                } 
+                else if (item.type === 'item') {
+                    let floatY = Math.sin(frameCount / 15) * 5;
+                    ctx.font = `${item.obj.size}px Arial`;
+                    ctx.fillText(item.obj.emoji, item.obj.x, item.obj.y + floatY);
+                    ctx.font = '8px "Press Start 2P", monospace';
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(item.obj.name, item.obj.x, item.obj.y - 25 + floatY);
+                } 
+                else {
+                    ctx.font = `${item.obj.size}px Arial`;
+                    ctx.fillText(item.obj.emoji, item.obj.x, item.obj.y);
+                }
+
+                if (item.type === 'npc') {
+                    ctx.font = '10px "Press Start 2P", monospace';
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(item.obj.name, item.obj.x, item.obj.y - 35);
+                    let q = quests[item.obj.questId];
+                    let indicator = "";
+                    if (!q.active) indicator = "!";
+                    else if (!q.complete && inventoryItems.includes(item.obj.questId)) indicator = "?";
+                    else if (!q.complete) indicator = "...";
+
+                    if (indicator) {
+                        let floatY = Math.sin(frameCount / 10) * 3;
+                        ctx.fillStyle = indicator === "?" ? '#55ff55' : 'yellow';
+                        ctx.fillText(indicator, item.obj.x, item.obj.y - 50 + floatY);
+                    }
+                    if (gameState === "PLAY") {
+                        let dist = Math.hypot(player.x - item.obj.x, player.y - item.obj.y);
+                        if (dist < 80) {
+                            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                            ctx.beginPath();
+                            ctx.arc(item.obj.x, item.obj.y, 80, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+        draw();
+    });
+</script>
+</body>
+</html>
