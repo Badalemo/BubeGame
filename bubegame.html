@@ -15,6 +15,22 @@
             user-select: none;
         }
 
+        #startScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+        }
+
+        h1 { color: #ffb6c1; text-shadow: 4px 4px 0px #000; text-align: center; line-height: 1.5; font-size: clamp(16px, 3vw, 36px); margin-bottom: 10px;}
+        p { text-align: center; line-height: 1.8; font-size: clamp(8px, 1.5vw, 12px); margin-bottom: 30px; color: #ddd; max-width: 80%; }
+
+        button.ui-btn {
+            background: #ff69b4; color: white; border: 4px solid white;
+            padding: 15px 30px; font-family: 'Press Start 2P', monospace;
+            cursor: pointer; box-shadow: 4px 4px 0 #000; font-size: clamp(10px, 2vw, 16px); transition: 0.1s;
+        }
+        button.ui-btn:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0 #000; }
+
         #gameContainer {
             position: relative; width: 100%; height: 100%;
             display: flex; justify-content: center; align-items: center;
@@ -25,104 +41,4 @@
             background-image: 
                 radial-gradient(#3e7338 15%, transparent 16%),
                 radial-gradient(#3e7338 15%, transparent 16%);
-            background-size: 60px 60px;
-            background-position: 0 0, 30px 30px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            image-rendering: pixelated;
-            max-width: 100%; max-height: 100%;
-        }
-
-        #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        
-        #startScreen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; pointer-events: auto; z-index: 100;
-        }
-
-        h1 { color: #ffb6c1; text-shadow: 4px 4px 0px #000; text-align: center; line-height: 1.5; font-size: clamp(16px, 3vw, 36px); margin-bottom: 10px;}
-        p { text-align: center; line-height: 1.8; font-size: clamp(8px, 1.5vw, 12px); margin-bottom: 30px; color: #ddd; max-width: 80%; }
-
-        button.ui-btn {
-            background: #ff69b4; color: white; border: 4px solid white;
-            padding: 15px 30px; font-family: 'Press Start 2P', monospace;
-            cursor: pointer; box-shadow: 4px 4px 0 #000; font-size: clamp(10px, 2vw, 16px); transition: 0.1s;
-            pointer-events: auto;
-        }
-        button.ui-btn:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0 #000; }
-
-        #dialogueBox {
-            position: absolute; bottom: 5%; left: 10%; width: 80%; height: 120px;
-            background: rgba(0, 0, 0, 0.85); border: 4px solid #ffb6c1; padding: 15px;
-            box-sizing: border-box; display: none; pointer-events: auto;
-            box-shadow: 8px 8px 0 rgba(0,0,0,0.6); z-index: 50;
-        }
-        #npcName { color: #ffeb3b; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; }
-        #dialogueText { font-size: 10px; line-height: 1.6; color: #fff; }
-        #dialogueIndicator { position: absolute; bottom: 10px; right: 15px; font-size: 10px; animation: blink 1s infinite; }
-        
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
-
-        #questLog {
-            position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7);
-            border: 2px solid #fff; padding: 10px; font-size: 8px; line-height: 1.5;
-            max-width: 200px; color: #ffb6c1; text-shadow: 1px 1px 0 #000;
-        }
-        .quest-item { color: white; margin-top: 5px; }
-        .quest-done { color: #888; text-decoration: line-through; }
-
-        #inventory {
-            position: absolute; top: 10px; left: 10px; font-size: 10px;
-            background: rgba(0,0,0,0.7); border: 2px solid #fff; padding: 10px;
-            max-width: 250px; line-height: 1.5;
-        }
-
-        #mobileControls {
-            position: absolute; bottom: 20px; left: 0; width: 100%; height: 150px;
-            display: none; pointer-events: none; z-index: 40;
-        }
-        .dpad { position: absolute; left: 20px; bottom: 0px; width: 120px; height: 120px; pointer-events: auto;}
-        .dbtn { position: absolute; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 10px; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; }
-        .dbtn:active { background: rgba(255,105,180,0.6); }
-        .up { top: 0; left: 40px; width: 40px; height: 40px; }
-        .down { bottom: 0; left: 40px; width: 40px; height: 40px; }
-        .left { top: 40px; left: 0; width: 40px; height: 40px; }
-        .right { top: 40px; right: 0; width: 40px; height: 40px; }
-        
-        #actionBtn {
-            position: absolute; right: 20px; bottom: 20px; width: 70px; height: 70px;
-            background: rgba(255,105,180,0.5); border: 4px solid #fff; border-radius: 50%;
-            color: white; font-family: 'Press Start 2P', monospace; font-size: 8px;
-            pointer-events: auto; display: flex; justify-content: center; align-items: center; text-align: center;
-        }
-        #actionBtn:active { background: rgba(255,105,180,0.9); transform: scale(0.95); }
-    </style>
-</head>
-<body>
-
-<div id="gameContainer">
-    <canvas id="gameCanvas"></canvas>
-    
-    <div id="uiLayer">
-        <div id="startScreen">
-            <h1>Bube's<br>Epic Feast</h1>
-            <p>The townspeople want to give you your favorite treats, but they need help. Explore, talk to everyone, and build the ultimate feast.<br><br>PC: Arrows/WASD to move, SPACE to interact.<br>Mobile: Use touch controls.</p>
-            <button id="startBtn" class="ui-btn" onclick="startGame()">START ADVENTURE</button>
-        </div>
-
-        <div id="inventory">Treats: None yet!</div>
-        
-        <div id="questLog">
-            MISSIONS:
-            <div id="questList"></div>
-        </div>
-
-        <div id="dialogueBox" onclick="handleDialogueClick()">
-            <div id="npcName">Name</div>
-            <div id="dialogueText">Hello!</div>
-            <div id="dialogueIndicator">▼</div>
-        </div>
-
-        <div id="mobileControls">
-            <div class="dpad">
-                <div class="dbtn up" id="btnUp">▲</div>
+            background-size: 60px 6
