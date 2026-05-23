@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Bube's Treat Catcher</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #2b2b36;
+        background-image:
+          radial-gradient(#3a3a48 20%, transparent 20%),
+          radial-gradient(#3a3a48 20%, transparent 20%);
+        background-size: 40px 40px;
+        background-position:
+          0 0,
+          20px 20px;
+        touch-action: none;
+        font-family: "Press Start 2P", cursive;
+        color: #fff;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        text-shadow: 4px 4px 0 #000;
+      }
+
+      #startScreen,
+      #gameOverScreen {
+        background: rgba(0, 0, 0, 0.7);
+        padding: 30px;
+        border: 4px solid #ff69b4;
+        border-radius: 10px;
+        pointer-events: auto;
+      }
+
+      h1 {
+        font-size: clamp(20px, 4vw, 40px);
+        margin-bottom: 20px;
+        color: #ffb6c1;
+        line-height: 1.5;
+      }
+
+      p {
+        font-size: clamp(10px, 2vw, 16px);
+        line-height: 1.8;
+        margin-bottom: 20px;
+        color: #e0e0e0;
+      }
+
+      button {
+        font-family: "Press Start 2P", cursive;
+        background: #ff69b4;
+        color: white;
+        border: 4px solid #fff;
+        padding: 15px 30px;
+        font-size: clamp(12px, 2vw, 20px);
+        cursor: pointer;
+        text-transform: uppercase;
+        box-shadow: 4px 4px 0 #000;
+        transition: all 0.1s;
+      }
+
+      button:active {
+        transform: translate(4px, 4px);
+        box-shadow: 0px 0px 0 #000;
+      }
+
+      /* Enforce Landscape Recommendation on Mobile */
+      @media screen and (orientation: portrait) {
+        #portraitWarning {
+          display: flex !important;
+        }
+      }
+      #portraitWarning {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        z-index: 100;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="portraitWarning">
+      <h1 style="color: white">Please rotate your phone to Landscape mode!</h1>
+      <p>This game is best played wide.</p>
+    </div>
+
+    <div id="ui">
+      <div id="startScreen">
+        <h1>Catch Bube's<br />Favorites!</h1>
+        <p>
+          Catch all her favorite treats and drinks!<br /><br />PC: Arrow Keys
+          (Left/Right)<br />Mobile: Tap Left/Right Screen
+        </p>
+        <button onclick="startGame()">Start Game</button>
+      </div>
+      <div id="gameOverScreen" style="display: none">
+        <h1>Game Over!</h1>
+        <p id="finalScore"></p>
+        <button onclick="startGame()">Play Again</button>
+      </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const startScreen = document.getElementById("startScreen");
+      const gameOverScreen = document.getElementById("gameOverScreen");
+      const finalScoreEl = document.getElementById("finalScore");
+
+      let w, h;
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+        if (isPlaying) {
+          player.y = h - 60;
+        }
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // Bube's likes mapped to pixel-friendly emojis
+      const treats = [
+        { emoji: "🧋", name: "Caramel Ribbon Latte" },
+        { emoji: "🥤", name: "Iced Chai/Coke/Tonic" },
+        { emoji: "🍫", name: "Dubai Chocolate/Brownie" },
+        { emoji: "🍕", name: "Pizza" },
+        { emoji: "🍟", name: "Loaded Fries" },
+        { emoji: "🫔", name: "Okpa" },
+        { emoji: "🍰", name: "Cheesecake" },
+        { emoji: "🍮", name: "Tiramisu" },
+        { emoji: "🍘", name: "Rice Krispy Treat" },
+        { emoji: "🧁", name: "Cupcake" },
+        { emoji: "🍦", name: "Ice-cream" },
+        { emoji: "🥤", name: "Milkshake" },
+        { emoji: "🍞", name: "Banana Bread" },
+        { emoji: "🍣", name: "Smoked Salmon" },
+      ];
+
+      let player = { x: w / 2, y: h - 60, size: 60, speed: 10, dx: 0 };
+      let items = [];
+      let particles = [];
+      let score = 0;
+      let lives = 3;
+      let isPlaying = false;
+      let frameCount = 0;
+
+      // PC Controls
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") player.dx = -player.speed;
+        if (e.key === "ArrowRight") player.dx = player.speed;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.dx = 0;
+      });
+
+      // Mobile Touch Controls
+      canvas.addEventListener("touchstart", (e) => {
+        const touchX = e.touches[0].clientX;
+        player.dx = touchX < w / 2 ? -player.speed : player.speed;
+      });
+      canvas.addEventListener("touchend", () => (player.dx = 0));
+
+      function startGame() {
+        startScreen.style.display = "none";
+        gameOverScreen.style.display = "none";
+        score = 0;
+        lives = 3;
+        items = [];
+        particles = [];
+        player.x = w / 2;
+        player.y = h - 60;
+        isPlaying = true;
+        frameCount = 0;
+        loop();
+      }
+
+      function spawnItem() {
+        const treat = treats[Math.floor(Math.random() * treats.length)];
+        items.push({
+          x: Math.random() * (w - 60) + 30,
+          y: -50,
+          emoji: treat.emoji,
+          speed: 3 + Math.random() * 4 + score * 0.05, // Speeds up as score increases
+          rotation: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.1,
+        });
+      }
+
+      function createParticles(x, y, emoji) {
+        for (let i = 0; i < 3; i++) {
+          particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10 - 5,
+            life: 1,
+            emoji: emoji,
+          });
+        }
+      }
+
+      function loop() {
+        if (!isPlaying) return;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Move Player
+        player.x += player.dx;
+        if (player.x < player.size / 2) player.x = player.size / 2;
+        if (player.x > w - player.size / 2) player.x = w - player.size / 2;
+
+        // Draw Player Basket
+        ctx.font = `${player.size}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🧺", player.x, player.y);
+
+        // Spawn logic
+        frameCount++;
+        if (frameCount % Math.max(25, 80 - score) === 0) spawnItem();
+
+        // Manage Items
+        for (let i = items.length - 1; i >= 0; i--) {
+          let item = items[i];
+          item.y += item.speed;
+          item.rotation += item.rotSpeed;
+
+          ctx.save();
+          ctx.translate(item.x, item.y);
+          ctx.rotate(item.rotation);
+          ctx.font = `40px Arial`;
+          ctx.fillText(item.emoji, 0, 0);
+          ctx.restore();
+
+          // Collision Detection
+          let dist = Math.hypot(player.x - item.x, player.y - item.y);
+          if (dist < player.size / 2 + 20) {
+            score += 10;
+            createParticles(item.x, item.y, "✨");
+            items.splice(i, 1);
+            continue;
+          }
+
+          // Missed Item
+          if (item.y > h + 50) {
+            lives--;
+            createParticles(item.x, h - 20, "❌");
+            items.splice(i, 1);
+          }
+        }
+
+        // Manage Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          let p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.5; // gravity
+          p.life -= 0.03;
+
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.font = "20px Arial";
+          ctx.fillText(p.emoji, p.x, p.y);
+          ctx.globalAlpha = 1.0;
+
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // Draw UI
+        ctx.font = 'clamp(10px, 2vw, 16px) "Press Start 2P"';
+        ctx.fillStyle = "#ffb6c1";
+        ctx.textAlign = "left";
+        ctx.fillText(`SCORE: ${score}`, 20, 40);
+
+        ctx.textAlign = "right";
+        ctx.fillText(`LIVES: ${"❤️".repeat(lives)}`, w - 20, 40);
+
+        // Game Over Check
+        if (lives <= 0) {
+          isPlaying = false;
+          gameOverScreen.style.display = "block";
+          finalScoreEl.innerHTML = `You caught <b>${score}</b> pts of treats for Bube!`;
+        } else {
+          requestAnimationFrame(loop);
+        }
+      }
+    </script>
+  </body>
+</html>
