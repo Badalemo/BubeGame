@@ -51,7 +51,6 @@
         }
         button.ui-btn:active { transform: translateY(8px); box-shadow: 0 0 0 #c2387d, 0 0 0 rgba(0,0,0,0.5); }
 
-        /* Modernized UI Elements */
         .hud-panel {
             background: rgba(20, 20, 30, 0.85); border: 2px solid #ff69b4;
             border-radius: 8px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.7);
@@ -72,4 +71,283 @@
             width: 90%; max-width: 800px; height: 140px; display: none; cursor: pointer;
             border: 4px solid #fff; border-radius: 12px; background: linear-gradient(180deg, rgba(30,30,45,0.95) 0%, rgba(10,10,20,0.95) 100%);
         }
-        #npcName { position: absolute
+        #npcName { position: absolute; top: -15px; left: 20px; background: #ff69b4; padding: 5px 15px; border-radius: 8px; border: 2px solid #fff; color: #fff; font-size: 12px; }
+        #dialogueText { font-size: 12px; line-height: 1.8; color: #fff; margin-top: 25px; text-shadow: 1px 1px 0 #000; }
+        #dialogueIndicator { position: absolute; bottom: 15px; right: 20px; font-size: 12px; animation: blink 1s infinite; color: #ffeb3b;}
+
+        #mobileControls { position: absolute; bottom: 20px; left: 0; width: 100%; height: 180px; display: none; pointer-events: none; z-index: 40; }
+        .dpad { position: absolute; left: 30px; bottom: 10px; width: 140px; height: 140px; pointer-events: auto;}
+        .dbtn { position: absolute; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; backdrop-filter: blur(2px); transition: 0.1s;}
+        .dbtn:active { background: rgba(255,105,180,0.8); border-color: #fff; transform: scale(0.9); }
+        .up { top: 0; left: 45px; width: 50px; height: 50px; }
+        .down { bottom: 0; left: 45px; width: 50px; height: 50px; }
+        .left { top: 45px; left: 0; width: 50px; height: 50px; }
+        .right { top: 45px; right: 0; width: 50px; height: 50px; }
+        
+        #actionBtn {
+            position: absolute; right: 30px; bottom: 40px; width: 80px; height: 80px;
+            background: rgba(255,105,180,0.5); border: 4px solid rgba(255,255,255,0.7); border-radius: 50%;
+            color: white; font-family: 'Press Start 2P', monospace; font-size: 10px;
+            pointer-events: auto; display: flex; justify-content: center; align-items: center; text-align: center;
+            backdrop-filter: blur(2px); box-shadow: 0 10px 0 rgba(0,0,0,0.3); transition: 0.1s;
+        }
+        #actionBtn:active { background: rgba(255,105,180,1); transform: translateY(5px); box-shadow: 0 5px 0 rgba(0,0,0,0.3); border-color: #fff;}
+
+        #deathScreen {
+            position: absolute; top:0; left:0; width: 100%; height: 100%;
+            background: rgba(255,0,0,0.3); display: none; pointer-events: none; z-index: 80;
+            justify-content: center; align-items: center; text-align: center;
+        }
+        #deathScreen h2 { color: white; text-shadow: 2px 2px 0 red; font-size: 30px;}
+    </style>
+</head>
+<body>
+
+<div id="startScreen">
+    <div class="title-logo">BUBE'S<br>EPIC QUEST<br><span style="font-size: 0.5em; color: #fff;">FIXED BRIDGES EDITION</span></div>
+    <p>We've secured the treacherous gaps with sturdy wooden bridges so you can safely explore the town!<br><br><b>Controls:</b><br>PC: WASD / Arrows to move. SPACE to interact.<br>Mobile: On-screen D-Pad and Action Button.</p>
+    <button id="startBtn" class="ui-btn">ENTER WORLD</button>
+</div>
+
+<div id="deathScreen"><h2>Whoops! Respawning...</h2></div>
+
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="uiLayer">
+        <div id="inventory" class="hud-panel"><span style="color:#ff69b4">TREAT INVENTORY:</span><br><br><span id="treatList" style="line-height: 2;">Empty!</span></div>
+        
+        <div id="questLog" class="hud-panel">
+            <div class="quest-title">ACTIVE MISSIONS</div>
+            <div id="questList"></div>
+        </div>
+
+        <div id="dialogueBox" class="hud-panel">
+            <div id="npcName">Name</div>
+            <div id="dialogueText">Hello!</div>
+            <div id="dialogueIndicator">▼</div>
+        </div>
+
+        <div id="mobileControls">
+            <div class="dpad">
+                <div class="dbtn up" id="btnUp">▲</div>
+                <div class="dbtn down" id="btnDown">▼</div>
+                <div class="dbtn left" id="btnLeft">◀</div>
+                <div class="dbtn right" id="btnRight">▶</div>
+            </div>
+            <div id="actionBtn">ACT</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const mobileControls = document.getElementById('mobileControls');
+    
+    function resize() {
+        canvas.width = window.innerWidth || 800;
+        canvas.height = window.innerHeight || 600;
+        ctx.imageSmoothingEnabled = false; 
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        mobileControls.style.display = 'block';
+    }
+
+    const TILE_SIZE = 48;
+    let gameState = "MENU"; 
+    let frameCount = 0;
+    let particles = [];
+    
+    const input = { up: false, down: false, left: false, right: false, action: false };
+
+    // Solid bridges added to ensure clear passage
+    const mapLayout = [
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "T......................................T",
+        "T..D..DDDD.....................D.......T",
+        "T.....D..D.........TTTTTTTTTTTDD.......T",
+        "TDDDDDD..D.........TWWWWWWWWWT.D.......T",
+        "T........D.........TW......WWT.D.......T",
+        "TTTTT..TTTTTTTTT...TW..TT..WWT.D.......T",
+        "T......TWWWWWWWT...TW..DT..WWT.DDDDDD..T",
+        "T..TTTTTWWWWWWWT...TWWBBWWWWWT......D..T",
+        "T..TWWWWBBWWWWWT...TTTTTTTTTTT......D..T",
+        "T..TW..........T....................D..T",
+        "T..TW.TTTTTTTT.T....................D..T",
+        "T..TW.T      T.T.......DDDDDDDDDDDDDD..T",
+        "T..TW.T      T.T.......D...............T",
+        "T..TW.T      T.T.......D...TTTTTTTTTT..T",
+        "T..TWWTTTTBTTT.T.......D...TWWWWWWWWT..T",
+        "T..TWWWWWWWWWWWT.......D...TW.....WWT..T",
+        "T..TTTTTTTTTTTTT.......D...TW.TT..WWT..T",
+        "T......................D...TW..T..WWT..T",
+        "T......DDDDDDDDDDDDDDDDD...TW.DT..WWT..T",
+        "T......D...................TWWBBWWWW...T",
+        "T......D...................TTTTTTTTT...T",
+        "T...TTTTT.TTTTTTTTTT...................T",
+        "T...TWWWWTWWWWWWWWWT...................T",
+        "T...TWWBBWWWWWWWWWWT...................T",
+        "T...TWWWWWWWWWWWWWWT...................T",
+        "T...TWWWWWWWWWWWWWWT...................T",
+        "T...TTTTTTTTTTTTTTTT...................T",
+        "T......................................T",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+    ];
+
+    const MAP_W = mapLayout[0].length;
+    const MAP_H = mapLayout.length;
+
+    function createTileCache(drawFunc) {
+        const c = document.createElement('canvas');
+        c.width = TILE_SIZE; c.height = TILE_SIZE;
+        drawFunc(c.getContext('2d'), TILE_SIZE);
+        return c;
+    }
+
+    const tileCache = {
+        grass: createTileCache((ctx, s) => {
+            ctx.fillStyle = '#3a6b35'; ctx.fillRect(0,0,s,s);
+            for(let i=0; i<20; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#2c5228' : '#4a8544';
+                ctx.fillRect(Math.random()*s, Math.random()*s, 2, 4);
+            }
+        }),
+        dirt: createTileCache((ctx, s) => {
+            ctx.fillStyle = '#8b5a2b'; ctx.fillRect(0,0,s,s);
+            for(let i=0; i<30; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#704822' : '#a36a32';
+                ctx.fillRect(Math.random()*s, Math.random()*s, 3, 2);
+            }
+        }),
+        tree: createTileCache((ctx, s) => {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(s/2, s-5, s/3, s/6, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#5c4033'; ctx.fillRect(s/2-4, s/2, 8, s/2);
+            ctx.fillStyle = '#3e2723'; ctx.fillRect(s/2+1, s/2, 3, s/2); 
+            ctx.fillStyle = '#1e4620'; ctx.beginPath(); ctx.arc(s/2, s/2+5, s/2.5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#2d6a30'; ctx.beginPath(); ctx.arc(s/2, s/2-5, s/2.2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#3e8e41'; ctx.beginPath(); ctx.arc(s/2-5, s/2-10, s/3, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(s/2+8, s/2-8, s/4, 0, Math.PI*2); ctx.fill();
+        }),
+        bridge: createTileCache((ctx, s) => {
+            ctx.fillStyle = '#8b5a2b'; ctx.fillRect(0,0,s,s);
+            ctx.fillStyle = '#5c4033'; 
+            for(let i=1; i<s; i+=8) ctx.fillRect(0, i, s, 2); 
+            ctx.fillStyle = '#3e2723'; ctx.fillRect(0,0,4,s); ctx.fillRect(s-4,0,4,s); 
+        }),
+        water: [] 
+    };
+
+    for(let f=0; f<4; f++) {
+        tileCache.water.push(createTileCache((ctx, s) => {
+            ctx.fillStyle = '#1e88e5'; ctx.fillRect(0,0,s,s);
+            ctx.fillStyle = '#42a5f5';
+            for(let i=0; i<5; i++) {
+                let offset = (f * 4 + i * 10) % s;
+                ctx.fillRect(offset, Math.random()*s, 10, 2);
+            }
+        }));
+    }
+
+    const player = { 
+        x: 10 * TILE_SIZE, y: 13 * TILE_SIZE, 
+        spawnX: 10 * TILE_SIZE, spawnY: 13 * TILE_SIZE,
+        w: 24, h: 36, speed: 4.5, vx: 0, vy: 0, dir: 1, moving: false, stateTime: 0 
+    };
+
+    const quests = {
+        drinks: { active: false, complete: false, title: "A Thirsty Barista", objective: "Find Coffee Beans in the West Woods." },
+        savory: { active: false, complete: false, title: "The Lost Recipe", objective: "Find the Secret Recipe in the North Maze." },
+        auntie: { active: false, complete: false, title: "Auntie's Special", objective: "Find the Special Spice in the East Ruins." },
+        sweets: { active: false, complete: false, title: "Sugar Rush", objective: "Find the Sugar Bag past the South River." }
+    };
+
+    const items = [
+        { id: 'beans', rx: 3, ry: 2, emoji: '🫘', name: 'Coffee Beans', collected: false, quest: 'drinks' },
+        { id: 'recipe', rx: 31, ry: 2, emoji: '📜', name: 'Secret Recipe', collected: false, quest: 'savory' },
+        { id: 'spice', rx: 23, ry: 7, emoji: '🌿', name: 'Special Spice', collected: false, quest: 'auntie' },
+        { id: 'sugar', rx: 30, ry: 19, emoji: '🧊', name: 'Sugar Bag', collected: false, quest: 'sweets' }
+    ];
+
+    const npcs = [
+        {
+            rx: 5, ry: 12, name: 'Barista', emoji: '🧍‍♂️', questId: 'drinks',
+            dialogue: {
+                start: ["Hey Bube! I have your Caramel Ribbon Latte, Iced Chai, Coke, and Teem Tonic ready...", "But I dropped my Coffee Beans across the bridges!", "Go get them for me!"],
+                pending: ["Cross the wooden bridges to the West."],
+                complete: ["You did it!", "Here are your drinks, enjoy!"],
+                done: ["Keep hydrated!"]
+            },
+            gives: ['🧋 Caramel Latte', '🥤 Iced Chai', '🥤 Coke', '🥤 Teem Tonic']
+        },
+        {
+            rx: 14, ry: 10, name: 'Chef', emoji: '👩‍🍳', questId: 'savory',
+            dialogue: {
+                start: ["Ah, Bube! I want to serve your Pizza, Loaded Fries, and Smoked Salmon.", "But a goblin stole my Recipe and ran into the dense North Maze!", "Please get it back."],
+                pending: ["The maze is tricky, stick to the dirt path!"],
+                complete: ["My masterpiece recipe! Thank you.", "Here is your Pizza, Loaded Fries, and Salmon!"],
+                done: ["Bon Appetit!"]
+            },
+            gives: ['🍕 Pizza', '🍟 Loaded Fries', '🍣 Smoked Salmon']
+        },
+        {
+            rx: 28, ry: 12, name: 'Auntie', emoji: '👵🏽', questId: 'auntie',
+            dialogue: {
+                start: ["Nne, welcome!", "I'm wrapping your Dubai Chocolate and making Okpa.", "But I need my Special Spice hidden in the Eastern Ruins.", "Can you fetch it?"],
+                pending: ["The spice is further East, nne."],
+                complete: ["Bless you, my child.", "Here is your Okpa and Dubai Chocolate."],
+                done: ["Eat well and grow strong!"]
+            },
+            gives: ['🫔 Okpa', '🍫 Dubai Chocolate']
+        },
+        {
+            rx: 16, ry: 21, name: 'Baker', emoji: '👨‍🍳', questId: 'sweets',
+            dialogue: {
+                start: ["Sugar emergency!", "I have Cheesecake, Tiramisu, Brownies, Rice Krispy, Cupcakes, Ice-cream, and Banana Bread...", "But I need my Sugar Bag from the South!", "Help!"],
+                pending: ["Cross the southern bridges for the sugar!"],
+                complete: ["Sweet! You saved the bakery.", "Take all these desserts!"],
+                done: ["Don't eat them all at once!"]
+            },
+            gives: ['🍰 Cheesecake', '🍮 Tiramisu', '🍫 Brownie', '🍘 Rice Krispy', '🧁 Cupcake', '🍦 Ice-cream', '🍞 Banana Bread']
+        }
+    ];
+
+    items.forEach(i => { i.x = i.rx * TILE_SIZE + TILE_SIZE/2; i.y = i.ry * TILE_SIZE + TILE_SIZE/2; });
+    npcs.forEach(n => { n.x = n.rx * TILE_SIZE + TILE_SIZE/2; n.y = n.ry * TILE_SIZE + TILE_SIZE/2; });
+
+    let collectedTreats = [];
+    let inventoryItems = [];
+    let currentNPC = null;
+    let dialogueLines = [];
+    let dialogueIndex = 0;
+    let camera = { x: 0, y: 0 };
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        document.getElementById('startScreen').style.display = 'none';
+        gameState = "PLAY";
+        updateHUD();
+        requestAnimationFrame(gameLoop);
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w') input.up = true;
+        if (e.key === 'ArrowDown' || e.key === 's') input.down = true;
+        if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
+        if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
+        if (e.key === ' ' || e.key === 'Enter') handleAction();
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w') input.up = false;
+        if (e.key === 'ArrowDown' || e.key === 's') input.down = false;
+        if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
+    });
+
+    function bindBtn(id, key) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.addEventListener('touchstart', e => { e.preventDefault(); input[key] = true; }, {passive: false});
+        el.addEventListener('touchend', e => { e.preventDefault(); input[key] =
